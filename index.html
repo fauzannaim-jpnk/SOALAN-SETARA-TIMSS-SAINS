@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank Soalan Interaktif TIMSS — Sains | JPNK Kedah</title>
+<meta name="description" content="Bank Soalan Interaktif TIMSS Sains — Jabatan Pendidikan Negeri Kedah, Sektor Pembelajaran. Koleksi soalan interaktif sumbangan guru-guru seluruh negeri Kedah.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h1>🔬 Bank Soalan TIMSS</h1>
+      <p class="subtitle">Sains — JPNK Kedah, Sektor Pembelajaran</p>
+      <div class="search-wrap">
+        <input id="searchInput" type="text" placeholder="Cari topik, guru, sekolah..." autocomplete="off">
+        <span class="kbd-hint">/</span>
+      </div>
+    </div>
+
+    <div id="activeQuestionBar" class="active-q-bar" hidden>
+      <div class="active-q-info">
+        <div class="active-q-title" id="qTopik"></div>
+        <div class="active-q-meta" id="qMeta"></div>
+      </div>
+      <div class="active-q-actions">
+        <button id="btnList" title="Papar senarai soalan">📋 <span class="lbl-text">List</span></button>
+        <button id="btnDownload" title="Muat turun soalan ini (.html)">⬇ <span class="lbl-text">Download</span></button>
+        <button id="btnNewTab" title="Buka dalam tab baharu">↗ <span class="lbl-text">New Tab</span></button>
+        <button id="btnPrint" title="Cetak soalan ini">🖨 <span class="lbl-text">Print</span></button>
+      </div>
+    </div>
+
+    <div class="list-meta"><span id="listCount">Memuatkan...</span></div>
+    <ul id="questionList" role="listbox"><li class="empty-hint">Memuatkan senarai soalan...</li></ul>
+  </aside>
+  <div id="sidebarOverlay"></div>
+
+  <main id="main">
+    <div class="topbar">
+      <button class="icon-btn" id="btnToggleSidebar" title="Toggle senarai (Ctrl+B)">☰</button>
+      <span class="topbar-title">🔬 Bank Soalan TIMSS Sains</span>
+    </div>
+
+    <section id="welcomeScreen" class="welcome">
+      <div class="welcome-card">
+        <div class="welcome-icon">🔬</div>
+        <h2>Bank Soalan Interaktif TIMSS — Sains</h2>
+        <p class="lead">Pilih satu soalan di panel sebelah kiri untuk mula.</p>
+      </div>
+    </section>
+
+    <section id="questionView" class="question-view" hidden>
+      <div class="frame-wrap">
+        <iframe id="qFrame" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-forms" title="Soalan interaktif"></iframe>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>window.APP_CONFIG = { subjek: "Sains", dataFile: "questions.json" };</script>
+<script src="app.js"></script>
+</body>
+</html>
