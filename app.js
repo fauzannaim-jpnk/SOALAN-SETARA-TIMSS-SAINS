@@ -1,7 +1,13 @@
 (function () {
   'use strict';
 
-  var CFG = window.APP_CONFIG || { subjek: 'Soalan', dataFile: 'questions.json' };
+  var CFG = window.APP_CONFIG || { subjek: 'Soalan', dataFile: 'questions.json', webAppUrl: '' };
+
+  // Kunci localStorage dikongsi merentasi semua laman Bank Soalan TIMSS
+  // JPNK Kedah yang dihoskan di bawah origin GitHub Pages yang sama, jadi
+  // murid yang log masuk di satu laman (cth. Matematik) tidak perlu log
+  // masuk semula di laman satu lagi (cth. Sains).
+  var STORAGE_KEY = 'timssKedahMuridSesi';
 
   var state = {
     all: [],
@@ -31,8 +37,144 @@
     btnToggleSidebar: document.getElementById('btnToggleSidebar'),
     statTotal: document.getElementById('statTotal'),
     statGuru: document.getElementById('statGuru'),
-    statSekolah: document.getElementById('statSekolah')
+    statSekolah: document.getElementById('statSekolah'),
+    loginScreen: document.getElementById('loginScreen'),
+    loginForm: document.getElementById('loginForm'),
+    loginIdInput: document.getElementById('loginIdInput'),
+    loginError: document.getElementById('loginError'),
+    btnLoginSubmit: document.getElementById('btnLoginSubmit'),
+    studentBadge: document.getElementById('studentBadge'),
+    studentWho: document.getElementById('studentWho'),
+    btnLogout: document.getElementById('btnLogout')
   };
+
+  // ---------- Log masuk murid ----------
+  function getSession() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (s && s.id && s.nama) return s;
+    } catch (e) { /* abaikan data rosak */ }
+    return null;
+  }
+
+  function setSession(data) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { /* localStorage tak tersedia */ }
+  }
+
+  function clearSession() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* abaikan */ }
+  }
+
+  function showLoginError(msg) {
+    if (!el.loginError) return;
+    el.loginError.textContent = msg;
+    el.loginError.hidden = false;
+  }
+  function hideLoginError() {
+    if (el.loginError) el.loginError.hidden = true;
+  }
+
+  function applyLoggedInUI(session) {
+    document.body.classList.add('logged-in');
+    if (el.studentBadge) {
+      el.studentBadge.hidden = false;
+      if (el.studentWho) el.studentWho.textContent = session.nama + ' • ' + session.sekolah;
+    }
+  }
+
+  function doLogin(id) {
+    hideLoginError();
+    if (!CFG.webAppUrl || CFG.webAppUrl.indexOf('GANTI_DENGAN') === 0) {
+      showLoginError('Sistem log masuk belum disediakan (URL Web App belum ditetapkan). Sila hubungi pentadbir.');
+      return;
+    }
+    el.btnLoginSubmit.disabled = true;
+    el.btnLoginSubmit.textContent = 'Menyemak...';
+    var url = CFG.webAppUrl + '?action=login&id=' + encodeURIComponent(id);
+    fetch(url)
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data && data.success) {
+          var session = { id: data.id, nama: data.nama, sekolah: data.sekolah, kodSekolah: data.kodSekolah || '', ppd: data.ppd || '' };
+          setSession(session);
+          applyLoggedInUI(session);
+          loadData();
+        } else {
+          showLoginError((data && data.message) || 'ID Pelajar tidak sah.');
+        }
+      })
+      .catch(function () {
+        showLoginError('Tidak dapat sambung ke pelayan. Sila semak sambungan internet dan cuba lagi.');
+      })
+      .then(function () {
+        el.btnLoginSubmit.disabled = false;
+        el.btnLoginSubmit.textContent = 'Log Masuk';
+      });
+  }
+
+  function doLogout() {
+    clearSession();
+    try { sessionStorage.removeItem('timssKedahLogSesi'); } catch (e) { /* abaikan */ }
+    document.body.classList.remove('logged-in');
+    if (el.studentBadge) el.studentBadge.hidden = true;
+    if (el.loginIdInput) el.loginIdInput.value = '';
+    hideLoginError();
+    showWelcome();
+  }
+
+  // Elak catat baris log berulang untuk soalan yang SAMA dalam sesi tab
+  // yang sama (cth. murid muat semula/refresh halaman, atau balik semula
+  // ke soalan sama guna butang back pelayar) — supaya bilangan dalam log
+  // penggunaan mencerminkan bilangan soalan yang benar-benar dibuka, bukan
+  // bilangan kali halaman dimuatkan semula.
+  function sudahDicatatSesiIni(qid) {
+    try {
+      var arr = JSON.parse(sessionStorage.getItem('timssKedahLogSesi') || '[]');
+      return arr.indexOf(qid) !== -1;
+    } catch (e) { return false; }
+  }
+  function tandaDicatatSesiIni(qid) {
+    try {
+      var arr = JSON.parse(sessionStorage.getItem('timssKedahLogSesi') || '[]');
+      if (arr.indexOf(qid) === -1) {
+        arr.push(qid);
+        sessionStorage.setItem('timssKedahLogSesi', JSON.stringify(arr));
+      }
+    } catch (e) { /* sessionStorage tak tersedia — teruskan tanpa dedup */ }
+  }
+
+  function logUsage(item) {
+    var session = getSession();
+    if (!session || !CFG.webAppUrl || CFG.webAppUrl.indexOf('GANTI_DENGAN') === 0) return;
+    if (sudahDicatatSesiIni(item.id)) return;
+    tandaDicatatSesiIni(item.id);
+    var params = new URLSearchParams({
+      action: 'logUsage',
+      id: session.id,
+      nama: session.nama,
+      sekolah: session.sekolah,
+      ppd: session.ppd || '',
+      subjek: CFG.subjek || '',
+      topik: item.topik || '',
+      guru: item.guru || '',
+      qid: item.id != null ? String(item.id) : ''
+    });
+    // "Fire-and-forget" — tidak menghalang paparan soalan kepada murid walau
+    // pun log gagal dihantar (cth. tiada internet sekejap).
+    fetch(CFG.webAppUrl + '?' + params.toString()).catch(function () {});
+  }
+
+  if (el.loginForm) {
+    el.loginForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var id = (el.loginIdInput.value || '').trim();
+      if (!id) { showLoginError('Sila masukkan ID Pelajar.'); return; }
+      doLogin(id);
+    });
+  }
+  if (el.btnLogout) el.btnLogout.addEventListener('click', doLogout);
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -146,6 +288,7 @@
     }
     renderList();
     closeMobileSidebar();
+    logUsage(item);
   }
 
   function showWelcome() {
@@ -254,6 +397,7 @@
   if (el.overlay) el.overlay.addEventListener('click', closeMobileSidebar);
 
   document.addEventListener('keydown', function (e) {
+    if (!document.body.classList.contains('logged-in')) return;
     var tag = (document.activeElement && document.activeElement.tagName) || '';
     var inSearch = document.activeElement === el.searchInput;
 
@@ -302,5 +446,14 @@
 
   window.addEventListener('hashchange', openFromHash);
 
-  loadData();
+  // ---------- Mula ----------
+  // Data soalan hanya dimuatkan SELEPAS murid log masuk — panel senarai
+  // soalan tidak sepatutnya kelihatan sebelum pengesahan ID Pelajar berjaya.
+  var existingSession = getSession();
+  if (existingSession) {
+    applyLoggedInUI(existingSession);
+    loadData();
+  } else if (el.loginIdInput) {
+    el.loginIdInput.focus();
+  }
 })();
