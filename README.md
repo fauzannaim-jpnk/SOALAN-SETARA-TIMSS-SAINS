@@ -53,3 +53,18 @@ Selepas ini:
   Google Sheet bila-bila masa.
 - Murid boleh klik **"Log Keluar"** dalam panel kiri untuk membolehkan
   murid lain log masuk pada komputer/peranti yang sama.
+
+## Kelajuan & Kestabilan Semasa Ramai Murid Log Masuk Serentak
+
+Untuk elak sesak bila ramai murid log masuk dalam masa yang sama-sama:
+
+- **Cache data murid** — `Code.gs` menyimpan senarai murid dalam ingatan
+  sementara pelayan (6 jam) supaya log masuk lebih pantas. **Bila
+  tambah/ubah data murid (cth. tambah Tingkatan 1)**, buka Google Sheet >
+  menu **"TIMSS Kedah"** (sebelah menu Help) > **"Muat Semula Cache Data
+  Murid"** supaya perubahan berkuat kuasa serta-merta (kalau tak buat,
+  perubahan akan berkuat kuasa sendiri dalam masa 6 jam).
+- **Cuba-semula automatik (auto-retry)** — kalau permintaan log masuk atau
+  catatan log penggunaan gagal buat sementara (pelayan sesak), laman web
+  akan cuba semula sendiri sehingga 3 kali sebelum tunjuk ralat kepada
+  murid — murid tak perlu klik berulang kali secara manual.

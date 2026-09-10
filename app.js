@@ -9,6 +9,28 @@
   // masuk semula di laman satu lagi (cth. Sains).
   var STORAGE_KEY = 'timssKedahMuridSesi';
 
+  /**
+   * fetch() dengan cuba-semula automatik (auto-retry) — berguna semasa
+   * ramai murid log masuk dalam masa yang sama-sama, di mana sesetengah
+   * permintaan mungkin gagal buat sementara sebab pelayan sesak. Cuba
+   * semula beberapa kali (dengan jeda semakin panjang) sebelum benar-benar
+   * mengalah dan melaporkan ralat kepada murid.
+   */
+  function fetchDenganCubaSemula(url, cubaanBaki, jedaMs) {
+    cubaanBaki = cubaanBaki == null ? 3 : cubaanBaki;
+    jedaMs = jedaMs == null ? 700 : jedaMs;
+    return fetch(url)
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res;
+      })
+      .catch(function (err) {
+        if (cubaanBaki <= 1) throw err;
+        return new Promise(function (resolve) { setTimeout(resolve, jedaMs); })
+          .then(function () { return fetchDenganCubaSemula(url, cubaanBaki - 1, Math.round(jedaMs * 1.6)); });
+      });
+  }
+
   var state = {
     all: [],
     filtered: [],
@@ -93,7 +115,7 @@
     el.btnLoginSubmit.disabled = true;
     el.btnLoginSubmit.textContent = 'Menyemak...';
     var url = CFG.webAppUrl + '?action=login&id=' + encodeURIComponent(id);
-    fetch(url)
+    fetchDenganCubaSemula(url)
       .then(function (res) { return res.json(); })
       .then(function (data) {
         if (data && data.success) {
@@ -144,6 +166,16 @@
       }
     } catch (e) { /* sessionStorage tak tersedia — teruskan tanpa dedup */ }
   }
+  function batalkanTandaDicatatSesiIni(qid) {
+    try {
+      var arr = JSON.parse(sessionStorage.getItem('timssKedahLogSesi') || '[]');
+      var idx = arr.indexOf(qid);
+      if (idx !== -1) {
+        arr.splice(idx, 1);
+        sessionStorage.setItem('timssKedahLogSesi', JSON.stringify(arr));
+      }
+    } catch (e) { /* abaikan */ }
+  }
 
   function logUsage(item) {
     var session = getSession();
@@ -161,9 +193,13 @@
       guru: item.guru || '',
       qid: item.id != null ? String(item.id) : ''
     });
-    // "Fire-and-forget" — tidak menghalang paparan soalan kepada murid walau
-    // pun log gagal dihantar (cth. tiada internet sekejap).
-    fetch(CFG.webAppUrl + '?' + params.toString()).catch(function () {});
+    // "Fire-and-forget" — tidak menghalang paparan soalan kepada murid, tapi
+    // cuba semula automatik dulu (cth. pelayan sesak semasa ramai murid buka
+    // soalan serentak) sebelum betul-betul mengalah. Kalau gagal selepas
+    // semua percubaan, buang tanda "sudah dicatat" supaya jika soalan ini
+    // dibuka semula nanti, sistem cuba catat log sekali lagi.
+    fetchDenganCubaSemula(CFG.webAppUrl + '?' + params.toString())
+      .catch(function () { batalkanTandaDicatatSesiIni(item.id); });
   }
 
   if (el.loginForm) {
